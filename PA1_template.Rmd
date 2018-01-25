@@ -8,9 +8,43 @@ output:
 
 ## Loading and preprocessing the data
 
+###Load the data
+
+```{r echo=TRUE}
+library(data.table)
+library(ggplot2)
+library(knitr)
+
+setwd("C:/Users/Carolina/Documents/Data scientist/reproductible research/RepData_PeerAssessment1-master/RepData_PeerAssessment1-master/")
+activityData <- read.csv("activity.csv")
+```
+
+
+###Process/transform the data into a format suitable for your analysis
+
+```{r echo=TRUE}
+activityData <- data.table::fread(input = "activity.csv")
+```
 
 
 ## What is mean total number of steps taken per day?
+
+
+
+```{r echo=TRUE}
+library(ggplot2)
+
+total.steps <- tapply(activityData$steps, activityData$date, FUN = sum, na.rm = TRUE)
+qplot(total.steps, binwidth = 1000, xlab = "total number of steps taken each day")
+```
+
+```{r echo=TRUE}
+mean(total.steps, na.rm = TRUE)
+```
+
+```{r echo=TRUE}
+median(total.steps, na.rm = TRUE)
+```
 
 
 
@@ -18,8 +52,77 @@ output:
 
 
 
+```{r echo=TRUE}
+library(ggplot2)
+averages <- aggregate(x = list(steps = activityData$steps), by = list(interval = activityData$interval), 
+    FUN = mean, na.rm = TRUE)
+ggplot(data = averages, aes(x = interval, y = steps)) + geom_line() + xlab("5-minute interval") + 
+    ylab("average number of steps taken")
+```
+
+On average, which 5-minute interval contains the maximum number of steps?
+
+```{r echo=TRUE}
+averages[which.max(averages$steps), ]
+```
+
+
 ## Imputing missing values
+
+
+```{r echo=TRUE}
+missing <- is.na(activityData$steps)
+# How many missing
+table(missing)
+```
+
+The missing values are filled in with mean value for the 5-minute interval.
+
+
+```{r echo=TRUE}
+# Replace each missing value with the mean value of its 5-minute interval
+fillvalue <- function(steps, interval) {
+    filled <- NA
+    if (!is.na(steps)) 
+        filled <- c(steps) else filled <- (averages[averages$interval == interval, "steps"])
+    return(filled)
+}
+filledData <- activityData
+filledData$steps <- mapply(fillvalue, filledData$steps, filledData$interval)
+```
+
+Using the filled data set, we are making an histogram of the total number of steps  each day and calculate the mean and median.
+
+
+```{r echo=TRUE}
+totalSteps <- tapply(filledData$steps, filledData$date, FUN = sum)
+qplot(totalSteps, binwidth = 1000, xlab = "total number of steps taken each day")
+```
+
+```{r echo=TRUE}
+mean(totalSteps)
+```
+
+```{r echo=TRUE}
+median(totalSteps)
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+```{r echo=TRUE}
+filledData$day=ifelse(as.POSIXlt(as.Date(filledData$date))$wday%%6==0,
+                          "weekend","weekday")
+# For Sunday and Saturday : weekend, Other days : weekday 
+filledData$day=factor(filledData$day,levels=c("weekday","weekend"))
+```
+
+
+```{r echo=TRUE}
+stepsInterval2=aggregate(steps~interval+day,filledData,mean)
+library(lattice)
+xyplot(steps~interval|factor(day),data=stepsInterval2,aspect=1/2,type="l")
+
+```
